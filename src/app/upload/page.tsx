@@ -13,10 +13,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import * as pdfjs from "pdfjs-dist";
-import "pdfjs-dist/build/pdf.worker.min.mjs";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Note: No top-level pdfjs imports here to avoid SSR/Prerender ReferenceError (DOMMatrix)
 
 export default function UploadPage() {
   const { data: session } = useSession();
@@ -41,6 +39,11 @@ export default function UploadPage() {
   };
 
   const generateCoverImage = async (file: File): Promise<string> => {
+    // Dynamically import pdfjs on the client to avoid SSR issues
+    const pdfjs = await import("pdfjs-dist");
+    // Ensure worker is configured only on client
+    pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
     const page = await pdf.getPage(1);
