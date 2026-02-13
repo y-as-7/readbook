@@ -43,6 +43,19 @@ export default function ViewerPage() {
   const [progress, setProgress] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // 1. Initialize dark mode from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("readbook_dark_mode");
+    if (saved !== null) {
+      setIsDarkMode(saved === "true");
+    }
+  }, []);
+
+  // 2. Persist dark mode to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("readbook_dark_mode", isDarkMode.toString());
+  }, [isDarkMode]);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
