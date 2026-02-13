@@ -43,18 +43,46 @@ export default function ViewerPage() {
   const [progress, setProgress] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // 1. Initialize dark mode from localStorage on mount
+  // 1. Initialize dark mode from server on mount
   useEffect(() => {
-    const saved = localStorage.getItem("readbook_dark_mode");
-    if (saved !== null) {
-      setIsDarkMode(saved === "true");
-    }
+    fetchSettings();
   }, []);
 
-  // 2. Persist dark mode to localStorage when it changes
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch("/api/user/settings");
+      const data = await res.json();
+      if (res.ok) {
+        setIsDarkMode(data.isDarkMode);
+      } else {
+        // Fallback to localStorage if server fails
+        const saved = localStorage.getItem("readbook_dark_mode");
+        if (saved !== null) {
+          setIsDarkMode(saved === "true");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch settings", err);
+    }
+  };
+
+  // 2. Persist dark mode to server AND localStorage when it changes
   useEffect(() => {
     localStorage.setItem("readbook_dark_mode", isDarkMode.toString());
+    saveSettings();
   }, [isDarkMode]);
+
+  const saveSettings = async () => {
+    try {
+      await fetch("/api/user/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDarkMode }),
+      });
+    } catch (err) {
+      console.error("Failed to save settings", err);
+    }
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
