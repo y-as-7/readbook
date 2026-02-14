@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import cloudinary from "@/lib/cloudinary";
 
 export async function POST(req: Request) {
   try {
@@ -56,6 +57,27 @@ export async function GET(req: Request) {
 
     if (!pdf) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Generate signed URL if public ID is available
+    if (pdf.cloudinaryPublicId) {
+      try {
+        // Extract version from existing URL if possible
+        // Expected format: .../v12345678/...
+        const versionMatch = pdf.cloudinaryUrl ? pdf.cloudinaryUrl.match(/\/v(\d+)\//) : null;
+        const version = versionMatch ? versionMatch[1] : undefined;
+
+
+
+        // Construct proxy URL with publicId and version
+        // The proxy will handle generating the private download URL
+        const proxyUrl = `/api/pdfs/serve?publicId=${encodeURIComponent(pdf.cloudinaryPublicId)}&version=${version || ""}`;
+
+        pdf.cloudinaryUrl = proxyUrl;
+      } catch (e) {
+        console.error("Error generating signed URL:", e);
+        // Fallback to existing URL
+      }
     }
 
     return NextResponse.json(pdf);

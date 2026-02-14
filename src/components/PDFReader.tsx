@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Document, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -11,7 +12,8 @@ import { useWindowSize } from "@/hooks/useWindowSize";
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PDFReaderProps {
-  pdfContent: string;
+  pdfContent?: string;
+  url?: string;
   numPages: number;
   onDocumentLoadSuccess: (data: { numPages: number }) => void;
   isDarkMode: boolean;
@@ -20,6 +22,7 @@ interface PDFReaderProps {
 
 export default function PDFReader({
   pdfContent,
+  url,
   numPages,
   onDocumentLoadSuccess,
   isDarkMode,
@@ -28,9 +31,19 @@ export default function PDFReader({
   const { width } = useWindowSize();
   const pageWidth = Math.min((width || 0) - 48, 900);
 
+  const file = useMemo(() => {
+    if (url) return url;
+    if (!pdfContent) return null;
+    const content = pdfContent.trim();
+    if (content.startsWith("data:")) {
+      return content;
+    }
+    return `data:application/pdf;base64,${content}`;
+  }, [pdfContent, url]);
+
   return (
     <Document
-      file={`data:application/pdf;base64,${pdfContent}`}
+      file={file}
       onLoadSuccess={onDocumentLoadSuccess}
       loading={
         <div className="flex flex-col items-center gap-4 py-20">

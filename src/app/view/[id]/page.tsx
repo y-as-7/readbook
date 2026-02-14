@@ -433,6 +433,7 @@ export default function ViewerPage() {
           >
             <PDFReader
               pdfContent={pdf?.content}
+              url={pdf?.cloudinaryUrl}
               numPages={numPages}
               onDocumentLoadSuccess={onDocumentLoadSuccess}
               isDarkMode={isDarkMode}

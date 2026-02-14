@@ -18,7 +18,8 @@ export async function POST(req: Request) {
     // Create upload parameters - only include what needs to be signed
     const uploadParams = {
       timestamp,
-      // Remove folder temporarily to test basic upload
+      type: "upload",
+      access_mode: "public",
       // folder: folder || `readbook/${userId}`,
     };
 
