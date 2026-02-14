@@ -5,11 +5,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   experimental: {
     serverComponentsExternalPackages: [],
-  },
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
+    bodySizeLimit: '50mb',
   },
 };
 
