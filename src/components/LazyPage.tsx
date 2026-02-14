@@ -8,6 +8,7 @@ interface LazyPageProps {
   width: number;
   renderTextLayer: boolean;
   renderAnnotationLayer: boolean;
+  scrollLatency?: number;
 }
 
 export default function LazyPage({
@@ -15,6 +16,7 @@ export default function LazyPage({
   width,
   renderTextLayer,
   renderAnnotationLayer,
+  scrollLatency = 1200,
 }: LazyPageProps) {
   const [isVisible, setIsVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +36,7 @@ export default function LazyPage({
         }
       },
       {
-        rootMargin: "1200px 0px", // Pre-render 1200px before appearing to eliminate latency
+        rootMargin: `${scrollLatency}px 0px`, // Dynamic pre-rendering offset
         threshold: 0.01,
       },
     );

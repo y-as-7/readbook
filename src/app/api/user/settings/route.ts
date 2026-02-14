@@ -24,6 +24,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       isDarkMode: user.isDarkMode ?? false,
+      scrollLatency: user.scrollLatency ?? 1200,
     });
   } catch (error) {
     console.error("Settings fetch error:", error);
@@ -38,14 +39,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { isDarkMode } = await req.json();
+    const { isDarkMode, scrollLatency } = await req.json();
 
     const client = await clientPromise;
     const db = client.db("readbook");
 
+    const updateData: any = { updatedAt: new Date() };
+    if (isDarkMode !== undefined) updateData.isDarkMode = isDarkMode;
+    if (scrollLatency !== undefined) updateData.scrollLatency = scrollLatency;
+
     await db.collection("users").updateOne(
       { username: (session.user as any).username },
-      { $set: { isDarkMode, updatedAt: new Date() } }
+      { $set: updateData }
     );
 
     return NextResponse.json({ message: "Settings updated" });

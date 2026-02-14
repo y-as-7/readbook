@@ -46,6 +46,7 @@ export default function ViewerPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [scrollLatency, setScrollLatency] = useState(1200);
 
   // Translation State
   const [selectedText, setSelectedText] = useState("");
@@ -71,11 +72,18 @@ export default function ViewerPage() {
       const data = await res.json();
       if (res.ok) {
         setIsDarkMode(data.isDarkMode);
+        if (data.scrollLatency !== undefined) {
+          setScrollLatency(data.scrollLatency);
+        }
       } else {
         // Fallback to localStorage if server fails
         const saved = localStorage.getItem("readbook_dark_mode");
         if (saved !== null) {
           setIsDarkMode(saved === "true");
+        }
+        const savedLatency = localStorage.getItem("readbook_scroll_latency");
+        if (savedLatency !== null) {
+          setScrollLatency(parseInt(savedLatency, 10));
         }
       }
     } catch (err) {
@@ -428,6 +436,7 @@ export default function ViewerPage() {
               numPages={numPages}
               onDocumentLoadSuccess={onDocumentLoadSuccess}
               isDarkMode={isDarkMode}
+              scrollLatency={scrollLatency}
             />
           </div>
         </div>

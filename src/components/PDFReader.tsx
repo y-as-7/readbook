@@ -15,6 +15,7 @@ interface PDFReaderProps {
   numPages: number;
   onDocumentLoadSuccess: (data: { numPages: number }) => void;
   isDarkMode: boolean;
+  scrollLatency?: number;
 }
 
 export default function PDFReader({
@@ -22,6 +23,7 @@ export default function PDFReader({
   numPages,
   onDocumentLoadSuccess,
   isDarkMode,
+  scrollLatency = 1200,
 }: PDFReaderProps) {
   const { width } = useWindowSize();
   const pageWidth = Math.min((width || 0) - 48, 900);
@@ -49,6 +51,7 @@ export default function PDFReader({
           width={pageWidth}
           renderAnnotationLayer={false}
           renderTextLayer={true}
+          scrollLatency={scrollLatency}
         />
       ))}
     </Document>
