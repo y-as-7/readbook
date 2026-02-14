@@ -39,6 +39,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check content-length header before processing
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
+      return NextResponse.json({
+        error: "File too large. Maximum size is 50MB."
+      }, { status: 413 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const title = formData.get("title") as string;
