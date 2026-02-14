@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { put, del } from "@vercel/blob";
 
 export async function DELETE(req: Request) {
   try {
@@ -20,6 +21,17 @@ export async function DELETE(req: Request) {
 
     const client = await clientPromise;
     const db = client.db("readbook");
+
+    // Get the PDF document to access the blob URL
+    const pdf = await db.collection("pdfs").findOne({
+      _id: new ObjectId(id),
+      userId: (session.user as any).username,
+    });
+
+    if (pdf && pdf.blobUrl) {
+      // Delete the blob from Vercel Blob storage
+      await del(pdf.blobUrl);
+    }
 
     await db.collection("pdfs").deleteOne({
       _id: new ObjectId(id),
@@ -39,14 +51,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check content-length header before processing (10MB limit)
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
-      return NextResponse.json({
-        error: "File too large. Maximum size is 10MB."
-      }, { status: 413 });
-    }
-
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const title = formData.get("title") as string;
@@ -56,18 +60,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Additional file size check
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({
-        error: "File too large. Maximum size is 10MB."
-      }, { status: 413 });
-    }
-
-    // Convert file to base64 for simplicity in this demo (MongoDB has 16MB limit)
-    // For production, use S3 or GridFS
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64Content = buffer.toString("base64");
+    // Upload file to Vercel Blob
+    const blob = await put(file.name, file, {
+      access: 'public',
+    });
 
     const client = await clientPromise;
     const db = client.db("readbook");
@@ -76,7 +72,8 @@ export async function POST(req: Request) {
       userId: (session.user as any).username,
       title: title || file.name,
       fileName: file.name,
-      content: base64Content,
+      blobUrl: blob.url,
+      fileSize: file.size,
       coverImage: coverImage || null,
       progress: 0,
       createdAt: new Date(),
