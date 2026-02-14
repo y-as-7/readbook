@@ -46,47 +46,7 @@ export async function DELETE(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const title = formData.get("title") as string;
-    const coverImage = formData.get("coverImage") as string;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    }
-
-    // Upload file to Vercel Blob
-    const blob = await put(file.name, file, {
-      access: 'public',
-    });
-
-    const client = await clientPromise;
-    const db = client.db("readbook");
-
-    const result = await db.collection("pdfs").insertOne({
-      userId: (session.user as any).username,
-      title: title || file.name,
-      fileName: file.name,
-      blobUrl: blob.url,
-      fileSize: file.size,
-      coverImage: coverImage || null,
-      progress: 0,
-      createdAt: new Date(),
-    });
-
-    return NextResponse.json({ message: "Upload successful", id: result.insertedId }, { status: 201 });
-  } catch (error) {
-    console.error("Upload error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
+// POST method removed - now using direct Cloudinary upload via /api/pdfs/save-metadata
 
 export async function GET(req: Request) {
   try {
