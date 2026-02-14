@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { put, del } from "@vercel/blob";
+import cloudinary from "@/lib/cloudinary";
 
 export async function DELETE(req: Request) {
   try {
@@ -22,15 +22,17 @@ export async function DELETE(req: Request) {
     const client = await clientPromise;
     const db = client.db("readbook");
 
-    // Get the PDF document to access the blob URL
+    // Get the PDF document to access the Cloudinary public ID
     const pdf = await db.collection("pdfs").findOne({
       _id: new ObjectId(id),
       userId: (session.user as any).username,
     });
 
-    if (pdf && pdf.blobUrl) {
-      // Delete the blob from Vercel Blob storage
-      await del(pdf.blobUrl);
+    if (pdf && pdf.cloudinaryPublicId) {
+      // Delete the file from Cloudinary
+      await cloudinary.uploader.destroy(pdf.cloudinaryPublicId, {
+        resource_type: "raw"
+      });
     }
 
     await db.collection("pdfs").deleteOne({

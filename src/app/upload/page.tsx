@@ -33,9 +33,9 @@ export default function UploadPage() {
         return;
       }
 
-      // Check file size (50MB limit with Vercel Blob)
-      if (selectedFile.size > 50 * 1024 * 1024) {
-        setError("File too large. Maximum size is 50MB.");
+      // Check file size (100MB limit for Cloudinary free tier)
+      if (selectedFile.size > 100 * 1024 * 1024) {
+        setError("File too large. Maximum size is 100MB.");
         return;
       }
 
@@ -77,71 +77,58 @@ export default function UploadPage() {
     try {
       const coverImage = await generateCoverImage(file);
 
-      // For files larger than 4MB, use direct blob upload
-      if (file.size > 4 * 1024 * 1024) {
-        // First, get upload URL from our API
-        const uploadUrlRes = await fetch("/api/pdfs/upload-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: file.name,
-            title: title,
-            coverImage: coverImage,
-            fileSize: file.size
-          }),
-        });
+      // Get Cloudinary signature for direct upload
+      const signatureRes = await fetch("/api/cloudinary/signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: "readbook" }),
+      });
 
-        if (!uploadUrlRes.ok) {
-          const data = await uploadUrlRes.json();
-          throw new Error(data.error || "Failed to get upload URL");
-        }
+      if (!signatureRes.ok) {
+        throw new Error("Failed to get upload signature");
+      }
 
-        const { uploadUrl, blobUrl } = await uploadUrlRes.json();
+      const { signature, timestamp, api_key, cloud_name, folder } = await signatureRes.json();
 
-        // Upload directly to Vercel Blob
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type },
-        });
+      // Upload directly to Cloudinary
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("signature", signature);
+      formData.append("timestamp", timestamp.toString());
+      formData.append("api_key", api_key);
+      formData.append("folder", folder);
 
-        if (!uploadRes.ok) {
-          throw new Error("Upload to blob storage failed");
-        }
-
-        // Save metadata to database
-        const saveRes = await fetch("/api/pdfs/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: title,
-            fileName: file.name,
-            blobUrl: blobUrl,
-            fileSize: file.size,
-            coverImage: coverImage,
-          }),
-        });
-
-        if (!saveRes.ok) {
-          const data = await saveRes.json();
-          throw new Error(data.error || "Failed to save file metadata");
-        }
-      } else {
-        // For smaller files, use original method
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("title", title);
-        formData.append("coverImage", coverImage);
-
-        const res = await fetch("/api/pdfs", {
+      const cloudinaryRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloud_name}/raw/upload`,
+        {
           method: "POST",
           body: formData,
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Upload failed");
         }
+      );
+
+      if (!cloudinaryRes.ok) {
+        throw new Error("Upload to Cloudinary failed");
+      }
+
+      const cloudinaryData = await cloudinaryRes.json();
+
+      // Save metadata to database
+      const saveRes = await fetch("/api/pdfs/save-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title,
+          fileName: file.name,
+          cloudinaryUrl: cloudinaryData.secure_url,
+          cloudinaryPublicId: cloudinaryData.public_id,
+          fileSize: file.size,
+          coverImage: coverImage,
+        }),
+      });
+
+      if (!saveRes.ok) {
+        const data = await saveRes.json();
+        throw new Error(data.error || "Failed to save file metadata");
       }
 
       setSuccess(true);
@@ -214,7 +201,7 @@ export default function UploadPage() {
                     Click to upload or drag and drop
                   </p>
                   <p className="text-neutral-500 text-sm mt-1">
-                    PDF documents only (max 50MB)
+                    PDF documents only (max 100MB)
                   </p>
                 </div>
               ) : (

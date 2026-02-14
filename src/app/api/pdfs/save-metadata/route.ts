@@ -10,9 +10,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { title, fileName, blobUrl, fileSize, coverImage } = await req.json();
+    const { title, fileName, cloudinaryUrl, cloudinaryPublicId, fileSize, coverImage } = await req.json();
 
-    if (!title || !fileName || !blobUrl) {
+    if (!title || !fileName || !cloudinaryUrl || !cloudinaryPublicId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -23,14 +23,18 @@ export async function POST(req: Request) {
       userId: (session.user as any).username,
       title,
       fileName,
-      blobUrl,
-      fileSize,
+      cloudinaryUrl,
+      cloudinaryPublicId,
+      fileSize: fileSize || 0,
       coverImage: coverImage || null,
       progress: 0,
       createdAt: new Date(),
     });
 
-    return NextResponse.json({ message: "Metadata saved successfully", id: result.insertedId }, { status: 201 });
+    return NextResponse.json({
+      message: "Metadata saved successfully",
+      id: result.insertedId
+    }, { status: 201 });
   } catch (error) {
     console.error("Save metadata error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
