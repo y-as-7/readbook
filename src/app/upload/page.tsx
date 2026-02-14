@@ -77,19 +77,71 @@ export default function UploadPage() {
     try {
       const coverImage = await generateCoverImage(file);
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("title", title);
-      formData.append("coverImage", coverImage);
+      // For files larger than 4MB, use direct blob upload
+      if (file.size > 4 * 1024 * 1024) {
+        // First, get upload URL from our API
+        const uploadUrlRes = await fetch("/api/pdfs/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            title: title,
+            coverImage: coverImage,
+            fileSize: file.size
+          }),
+        });
 
-      const res = await fetch("/api/pdfs", {
-        method: "POST",
-        body: formData,
-      });
+        if (!uploadUrlRes.ok) {
+          const data = await uploadUrlRes.json();
+          throw new Error(data.error || "Failed to get upload URL");
+        }
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Upload failed");
+        const { uploadUrl, blobUrl } = await uploadUrlRes.json();
+
+        // Upload directly to Vercel Blob
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error("Upload to blob storage failed");
+        }
+
+        // Save metadata to database
+        const saveRes = await fetch("/api/pdfs/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title,
+            fileName: file.name,
+            blobUrl: blobUrl,
+            fileSize: file.size,
+            coverImage: coverImage,
+          }),
+        });
+
+        if (!saveRes.ok) {
+          const data = await saveRes.json();
+          throw new Error(data.error || "Failed to save file metadata");
+        }
+      } else {
+        // For smaller files, use original method
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("title", title);
+        formData.append("coverImage", coverImage);
+
+        const res = await fetch("/api/pdfs", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Upload failed");
+        }
       }
 
       setSuccess(true);
