@@ -15,11 +15,11 @@ export async function POST(req: Request) {
     const timestamp = Math.round(new Date().getTime() / 1000);
     const userId = (session.user as any).username;
 
-    // Create upload parameters
+    // Create upload parameters - only include what needs to be signed
     const uploadParams = {
       timestamp,
-      folder: folder || `readbook/${userId}`,
-      resource_type: "raw" as const, // For PDF files
+      // Remove folder temporarily to test basic upload
+      // folder: folder || `readbook/${userId}`,
     };
 
     // Generate signature
@@ -33,10 +33,16 @@ export async function POST(req: Request) {
       timestamp,
       api_key: process.env.CLOUDINARY_API_KEY,
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      folder: uploadParams.folder,
+      // folder: uploadParams.folder,
+      // resource_type: uploadParams.resource_type,
     });
   } catch (error) {
     console.error("Cloudinary signature error:", error);
+    console.error("Environment check:", {
+      hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+      hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET,
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

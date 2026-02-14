@@ -88,7 +88,7 @@ export default function UploadPage() {
         throw new Error("Failed to get upload signature");
       }
 
-      const { signature, timestamp, api_key, cloud_name, folder } = await signatureRes.json();
+      const { signature, timestamp, api_key, cloud_name } = await signatureRes.json();
 
       // Upload directly to Cloudinary
       const formData = new FormData();
@@ -96,10 +96,11 @@ export default function UploadPage() {
       formData.append("signature", signature);
       formData.append("timestamp", timestamp.toString());
       formData.append("api_key", api_key);
-      formData.append("folder", folder);
+      // Remove folder and resource_type temporarily
 
+      // Try auto upload endpoint which handles resource type detection
       const cloudinaryRes = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloud_name}/raw/upload`,
+        `https://api.cloudinary.com/v1_1/${cloud_name}/auto/upload`,
         {
           method: "POST",
           body: formData,
@@ -107,7 +108,9 @@ export default function UploadPage() {
       );
 
       if (!cloudinaryRes.ok) {
-        throw new Error("Upload to Cloudinary failed");
+        const errorText = await cloudinaryRes.text();
+        console.error("Cloudinary error:", errorText);
+        throw new Error(`Upload to Cloudinary failed: ${errorText}`);
       }
 
       const cloudinaryData = await cloudinaryRes.json();
