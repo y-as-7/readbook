@@ -32,6 +32,13 @@ export default function UploadPage() {
         setError("Please select a PDF file");
         return;
       }
+
+      // Check file size (10MB limit)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        setError("File too large. Maximum size is 10MB.");
+        return;
+      }
+
       setFile(selectedFile);
       if (!title) setTitle(selectedFile.name.replace(".pdf", ""));
       setError("");
@@ -155,7 +162,7 @@ export default function UploadPage() {
                     Click to upload or drag and drop
                   </p>
                   <p className="text-neutral-500 text-sm mt-1">
-                    PDF documents only
+                    PDF documents only (max 10MB)
                   </p>
                 </div>
               ) : (

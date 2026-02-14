@@ -39,11 +39,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check content-length header before processing
+    // Check content-length header before processing (10MB limit)
     const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
+    if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
       return NextResponse.json({
-        error: "File too large. Maximum size is 50MB."
+        error: "File too large. Maximum size is 10MB."
       }, { status: 413 });
     }
 
@@ -54,6 +54,13 @@ export async function POST(req: Request) {
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    }
+
+    // Additional file size check
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({
+        error: "File too large. Maximum size is 10MB."
+      }, { status: 413 });
     }
 
     // Convert file to base64 for simplicity in this demo (MongoDB has 16MB limit)
