@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { pdfId, progress, scrollY } = await req.json();
+    const { pdfId, progress, scrollY, markerPos } = await req.json();
 
     if (!pdfId) {
       return NextResponse.json({ error: "Missing PDF ID" }, { status: 400 });
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     await db.collection("pdfs").updateOne(
       { _id: new ObjectId(pdfId), userId: (session.user as any).username },
-      { $set: { progress, scrollY, updatedAt: new Date() } }
+      { $set: { progress, scrollY, markerPos, updatedAt: new Date() } }
     );
 
     return NextResponse.json({ message: "Progress updated" });

@@ -124,6 +124,10 @@ export default function ViewerPage() {
 
       if (res.ok) {
         setPdf(data);
+        // Restore marker position if it exists
+        if (data.markerPos) {
+          setMarkerPos(data.markerPos);
+        }
         // 3. Update cache with latest data
         await cachePdf(id as string, data);
       } else if (!cached) {
@@ -165,13 +169,16 @@ export default function ViewerPage() {
     setProgress(currentProgress);
   };
 
-  // Auto-save every 10 seconds if changed
+  // 3. Debounced Auto-save: Trigger save 2 seconds after scroll stops or marker changes
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (progress > 0) saveProgress();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [progress]);
+    if (progress === 0 && !markerPos) return;
+
+    const timer = setTimeout(() => {
+      saveProgress();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [progress, markerPos]);
 
   const saveProgress = async () => {
     if (!pdf || !scrollRef.current) return;
@@ -184,6 +191,7 @@ export default function ViewerPage() {
           pdfId: id,
           progress: progress,
           scrollY: scrollRef.current.scrollTop,
+          markerPos: markerPos,
         }),
       });
     } catch (err) {
@@ -244,6 +252,61 @@ export default function ViewerPage() {
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     handleSelection(e, true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const page = target.closest(".react-pdf__Page__textContent");
+
+    if (target.tagName === "SPAN" && page) {
+      const topStr = target.style.top;
+      if (!topStr) return;
+
+      const currentTop = parseFloat(topStr);
+      if (isNaN(currentTop)) return;
+
+      // Only perform expensive DOM operations if we hovered a new line
+      if (target.classList.contains("pdf-line-hover")) return;
+
+      // Clear all previous highlights in the reader
+      const allPages = document.querySelectorAll(
+        ".react-pdf__Page__textContent",
+      );
+      allPages.forEach((p) => {
+        p.querySelectorAll(".pdf-line-hover").forEach((el) =>
+          el.classList.remove("pdf-line-hover"),
+        );
+      });
+
+      // Highlight all spans on the same line (same top offset with small tolerance)
+      const spans = Array.from(page.querySelectorAll("span"));
+      spans.forEach((s) => {
+        const sTop = parseFloat(s.style.top);
+        if (!isNaN(sTop) && Math.abs(sTop - currentTop) < 1.5) {
+          s.classList.add("pdf-line-hover");
+        }
+      });
+    } else if (!target.closest(".pdf-line-hover")) {
+      // Clear if moving outside text but within the viewer
+      const allPages = document.querySelectorAll(
+        ".react-pdf__Page__textContent",
+      );
+      allPages.forEach((p) => {
+        p.querySelectorAll(".pdf-line-hover").forEach((el) =>
+          el.classList.remove("pdf-line-hover"),
+        );
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    const containers = document.querySelectorAll(
+      ".react-pdf__Page__textContent",
+    );
+    containers.forEach((container) => {
+      const previous = container.querySelectorAll(".pdf-line-hover");
+      previous.forEach((el) => el.classList.remove("pdf-line-hover"));
+    });
   };
 
   const handleTranslate = async () => {
@@ -348,12 +411,14 @@ export default function ViewerPage() {
       <main
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         className="flex-1 overflow-hidden relative flex justify-center bg-neutral-900 text-black"
       >
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="w-full max-w-5xl h-full overflow-y-auto px-3 md:px-8 pt-6 md:pt-8 pb-32 scrollbar-thin scrollbar-thumb-neutral-700"
+          className="w-full max-w-5xl h-full overflow-y-auto px-3 md:px-8 pt-6 md:pt-8 pb-32 scrollbar-thin scrollbar-thumb-neutral-700 scroll-smooth"
         >
           <div
             className={`flex flex-col items-center gap-0 pb-20 transition-all duration-500 ${isDarkMode ? "invert hue-rotate-180" : ""}`}
