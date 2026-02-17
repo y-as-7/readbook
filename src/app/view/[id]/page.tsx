@@ -17,11 +17,22 @@ import {
   Copy,
   Check,
   X,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { getCachedPdf, cachePdf } from "@/lib/pdfCache";
+import ClaudeChat from "@/components/ClaudeChat";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+  ContextMenuLabel,
+} from "@/components/ContextMenu";
 
 const PDFReader = dynamic(() => import("@/components/PDFReader"), {
   ssr: false,
@@ -60,6 +71,13 @@ export default function ViewerPage() {
   const [markerPos, setMarkerPos] = useState<{ x: number; y: number } | null>(
     null,
   );
+
+  // Claude State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatContext, setChatContext] = useState("");
+
+  // Context Menu State
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
 
   // 1. Initialize dark mode from server on mount
   useEffect(() => {
@@ -244,10 +262,6 @@ export default function ViewerPage() {
         setTranslatedText(""); // Reset previous translation
       } else if (!isTranslating) {
         setShowTranslateBtn(false);
-        // If it's a simple click (no selection), show the reading marker
-        if (!isDoubleClick) {
-          setMarkerPos({ x: e.clientX, y: e.clientY });
-        }
       }
     }, timeout);
   };
@@ -411,6 +425,18 @@ export default function ViewerPage() {
               </span>
             )}
           </div>
+
+          <button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            className={`p-2.5 md:p-3.5 rounded-xl md:rounded-2xl transition-all flex items-center gap-2 border active:scale-95 shadow-xl ${
+              isChatOpen
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-neutral-900 text-neutral-400 border-white/5 hover:text-white"
+            }`}
+            title="AI Chat"
+          >
+            <Bot className="w-4 h-4 md:w-5 md:h-5" />
+          </button>
         </div>
       </header>
 
@@ -423,24 +449,65 @@ export default function ViewerPage() {
         onMouseLeave={handleMouseLeave}
         className="flex-1 overflow-hidden relative flex justify-center bg-neutral-900 text-black"
       >
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="w-full max-w-5xl h-full overflow-y-auto px-3 md:px-8 pt-6 md:pt-8 pb-32 scrollbar-thin scrollbar-thumb-neutral-700 scroll-smooth"
-        >
-          <div
-            className={`flex flex-col items-center gap-0 pb-20 transition-all duration-500 ${isDarkMode ? "invert hue-rotate-180" : ""}`}
-          >
-            <PDFReader
-              pdfContent={pdf?.content}
-              url={pdf?.cloudinaryUrl}
-              numPages={numPages}
-              onDocumentLoadSuccess={onDocumentLoadSuccess}
-              isDarkMode={isDarkMode}
-              scrollLatency={scrollLatency}
-            />
-          </div>
-        </div>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              onContextMenu={(e) => setMenuPos({ x: e.clientX, y: e.clientY })}
+              className="w-full h-full overflow-y-auto px-3 md:px-8 pt-6 md:pt-8 pb-32 scrollbar-thin scrollbar-thumb-neutral-700 scroll-smooth flex justify-center"
+            >
+              <div
+                className={`flex flex-col items-center gap-0 pb-20 transition-all duration-500 w-full max-w-5xl ${isDarkMode ? "invert hue-rotate-180" : ""}`}
+              >
+                <PDFReader
+                  pdfContent={pdf?.content}
+                  url={pdf?.cloudinaryUrl}
+                  numPages={numPages}
+                  onDocumentLoadSuccess={onDocumentLoadSuccess}
+                  isDarkMode={isDarkMode}
+                  scrollLatency={scrollLatency}
+                />
+              </div>
+            </div>
+          </ContextMenuTrigger>
+
+          <ContextMenuContent>
+            <ContextMenuLabel>Reader Actions</ContextMenuLabel>
+            <ContextMenuItem
+              onClick={() => {
+                setMarkerPos(menuPos);
+              }}
+              className="gap-2"
+            >
+              <Save className="w-4 h-4" />
+              Add Reading Marker
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => setIsChatOpen(true)}
+              className="gap-2"
+            >
+              <Bot className="w-4 h-4" />
+              Ask Claude AI
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const text = window.getSelection()?.toString().trim();
+                if (text) {
+                  setSelectedText(text);
+                  setTranslationPos(menuPos);
+                  handleTranslate();
+                  setShowTranslateBtn(true);
+                }
+              }}
+              className="gap-2"
+            >
+              <Languages className="w-4 h-4" />
+              Translate Selection
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
         {/* Floating Translation UI */}
         <AnimatePresence>
@@ -460,16 +527,31 @@ export default function ViewerPage() {
               className="z-[100] flex flex-col items-center gap-3 pointer-events-none"
             >
               {!translatedText && !isTranslating && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTranslate();
-                  }}
-                  className="pointer-events-auto flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold shadow-2xl hover:bg-blue-500 transition-all active:scale-95 border border-white/10"
-                >
-                  <Languages className="w-4 h-4" />
-                  Translate to Arabic
-                </button>
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTranslate();
+                    }}
+                    className="pointer-events-auto flex items-center gap-2 bg-neutral-950/80 backdrop-blur-xl text-white px-5 py-3 rounded-2xl font-bold shadow-2xl hover:bg-neutral-900 transition-all active:scale-95 border border-white/10"
+                  >
+                    <Languages className="w-4 h-4" />
+                    Translate
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChatContext(selectedText);
+                      setIsChatOpen(true);
+                      setShowTranslateBtn(false);
+                    }}
+                    className="pointer-events-auto flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold shadow-2xl hover:bg-blue-500 transition-all active:scale-95 border border-white/10"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Ask Claude
+                  </button>
+                </>
               )}
 
               {isTranslating && (
@@ -561,6 +643,15 @@ export default function ViewerPage() {
           )}
         </AnimatePresence>
       </main>
+
+      <ClaudeChat
+        isOpen={isChatOpen}
+        onClose={() => {
+          setIsChatOpen(false);
+          setChatContext("");
+        }}
+        selectionContext={chatContext}
+      />
     </div>
   );
 }
